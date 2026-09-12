@@ -1,0 +1,87 @@
+services:
+
+  # =========================
+  # React + Vite
+  # =========================
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./app:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+  # =========================
+  # Symfony
+  # =========================
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+      - /app/vendor
+    environment:
+      DATABASE_URL: "mysql://ecommerce:ecommerce@database:3306/ecommerce?serverVersion=8.4&charset=utf8mb4"
+      MAILER_DSN: "smtp://mailer:1025"
+    depends_on:
+      database:
+        condition: service_healthy
+
+  # =========================
+  # MySQL
+  # =========================
+  database:
+    image: mysql:8.4
+
+    environment:
+      MYSQL_DATABASE: ecommerce
+      MYSQL_USER: ecommerce
+      MYSQL_PASSWORD: ecommerce
+      MYSQL_ROOT_PASSWORD: root
+
+    ports:
+      - "3306:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # =========================
+  # phpMyAdmin
+  # =========================
+  phpmyadmin:
+    image: phpmyadmin:latest
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: database
+      PMA_PORT: 3306
+      PMA_USER: ecommerce
+      PMA_PASSWORD: ecommerce
+    depends_on:
+      database:
+        condition: service_healthy
+
+  # =========================
+  # Mailpit
+  # =========================
+  mailer:
+    image: axllent/mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  mysql_data:
